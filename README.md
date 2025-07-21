@@ -1,45 +1,90 @@
 # HTML to DOCX Converter
 
-This project is a web application that converts HTML files to DOCX format. Users can upload an HTML file through a simple web interface, and the application will generate a corresponding DOCX file that can be downloaded.
+This is a web application that converts HTML files to DOCX format. It features a professional and user-friendly interface built with Next.js and a powerful backend powered by Flask.
 
-## Features
+## Key Features
 
--   **HTML to DOCX Conversion:** Convert HTML files to DOCX format while preserving basic formatting.
--   **Web-based Interface:** Easy-to-use web interface for uploading files.
--   **Supports various HTML tags:** Handles common HTML tags such as headings, paragraphs, lists, and links.
--   **Preserves Basic Styling:** Retains basic styling attributes like font size, bold, and italic.
+*   **Preserving Formatting and Styles**: Maintains the original formatting of the HTML document, including fonts, colors, styles, and layouts, ensuring the converted DOCX file accurately represents the source.
+*   **Hyperlinks and References**: All hyperlinks, references, and cross-references within the HTML document are retained and remain functional in the resulting DOCX file.
+*   **Complex HTML Structures**: The converter robustly handles complex HTML structures, such as nested elements, tables, lists, and CSS styles, for a reliable and accurate conversion process.
+*   **Minimized Data Loss**: The conversion process is designed to minimize the loss of information, including special characters, non-standard fonts, and custom CSS styles.
+*   **Scalability and Performance**: The tool is capable of efficiently handling large or multiple HTML files without compromising on accuracy or speed.
 
-## How to Use
+## Tech Stack
 
-1.  **Open the web application:** Access the application through your web browser.
-2.  **Upload an HTML file:** Click on the "Choose File" button to select the HTML file you want to convert.
-3.  **Convert to DOCX:** Click the "Convert to DOCX" button to start the conversion process.
-4.  **Download the DOCX file:** Once the conversion is complete, a download link for the DOCX file will appear. Click on it to download the file.
+*   **Frontend**: Next.js, React, TypeScript
+*   **Backend**: Flask, Python
+*   **HTML Parsing**: BeautifulSoup
+*   **DOCX Generation**: python-docx
 
-## Technologies Used
+## Getting Started
 
--   **Python:** The backend of the application is built using Python.
--   **Flask:** A lightweight web framework for Python used to create the web server.
--   **BeautifulSoup:** A Python library for pulling data out of HTML and XML files.
--   **python-docx:** A Python library for creating and updating Microsoft Word (.docx) files.
--   **Bootstrap:** A popular CSS framework for building responsive and mobile-first websites.
+To get a local copy up and running, follow these simple steps.
 
-## How to Run Locally
+### Prerequisites
 
-To run the project locally, follow these steps:
+*   Node.js and npm
+*   Python and pip
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/your-username/your-repo-name.git
+### Installation
+
+1.  **Clone the repo**
+    ```sh
+    git clone https://github.com/your_username_/Project-Name.git
     ```
-2.  **Install the required dependencies:**
-    ```bash
+2.  **Install frontend dependencies**
+    ```sh
+    cd frontend
+    npm install
+    ```
+3.  **Install backend dependencies**
+    ```sh
+    cd ../backend
     pip install -r requirements.txt
     ```
-    *(Note: You will need to create a `requirements.txt` file that includes `Flask`, `beautifulsoup4`, and `python-docx`.)*
-3.  **Run the application:**
-    ```bash
+
+### Running the Application
+
+1.  **Start the backend server**
+    ```sh
+    cd backend
     python app.py
     ```
-    *(Note: You will need to create an `app.py` file to serve the `INDEX.HTML` file and handle the file conversion.)*
-4.  **Access the application:** Open your web browser and go to `http://127.0.0.1:5000`.
+2.  **Start the frontend development server**
+    ```sh
+    cd ../frontend
+    npm run dev
+    ```
+
+The application will be available at `http://localhost:3000`.
+
+## Usage
+
+1.  Open the application in your browser.
+2.  Click the "Choose File" button to select an HTML file from your local machine.
+3.  Click the "Convert to DOCX" button to start the conversion process.
+4.  Once the conversion is complete, a "Download DOCX" link will appear. Click it to download the converted file.
+
+## Contributing
+
+Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+
+If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
+
+Don't forget to give the project a star! Thanks again!
+
+1.  Fork the Project
+2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4.  Push to the Branch (`git push origin feature/AmazingFeature`)
+5.  Open a Pull Request
+
+## License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+## Contact
+
+Your Name - [@your_twitter](https://twitter.com/your_twitter) - email@example.com
+
+Project Link: [https://github.com/your_username_/Project-Name](https://github.com/your_username_/Project-Name)

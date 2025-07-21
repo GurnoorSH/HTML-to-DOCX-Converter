@@ -4,15 +4,15 @@ This project is a web application that converts HTML files to DOCX format. Users
 
 ## Features
 
--   **HTML to DOCX Conversion:** Convert HTML files to DOCX format while preserving basic formatting.
--   **Web-based Interface:** Easy-to-use web interface for uploading files.
--   **Supports various HTML tags:** Handles common HTML tags such as headings, paragraphs, lists, and links.
--   **Preserves Basic Styling:** Retains basic styling attributes like font size, bold, and italic.
+-   **HTML to DOCX Conversion:** Convert HTML files to DOCX format while preserving a wide range of formatting.
+-   **Web-based Interface:** Easy-to-use web interface for uploading files with a drag-and-drop zone.
+-   **Supports various HTML tags:** Handles common HTML tags such as headings, paragraphs, lists, tables, and links.
+-   **Preserves Styling:** Retains styling attributes like font size, bold, italic, underline, and colors.
 
 ## How to Use
 
 1.  **Open the web application:** Access the application through your web browser.
-2.  **Upload an HTML file:** Click on the "Choose File" button to select the HTML file you want to convert.
+2.  **Upload an HTML file:** Drag and drop your HTML file onto the drop zone, or click to select the file you want to convert.
 3.  **Convert to DOCX:** Click the "Convert to DOCX" button to start the conversion process.
 4.  **Download the DOCX file:** Once the conversion is complete, a download link for the DOCX file will appear. Click on it to download the file.
 
@@ -36,10 +36,8 @@ To run the project locally, follow these steps:
     ```bash
     pip install -r requirements.txt
     ```
-    *(Note: You will need to create a `requirements.txt` file that includes `Flask`, `beautifulsoup4`, and `python-docx`.)*
 3.  **Run the application:**
     ```bash
     python app.py
     ```
-    *(Note: You will need to create an `app.py` file to serve the `INDEX.HTML` file and handle the file conversion.)*
 4.  **Access the application:** Open your web browser and go to `http://127.0.0.1:5000`.

@@ -1,4 +1,5 @@
-from flask import Flask, request, send_file
+from flask import Flask, request, send_file, jsonify
+from flask_cors import CORS
 from bs4 import BeautifulSoup
 from docx import Document
 from docx.shared import Pt, Inches, RGBColor
@@ -6,8 +7,22 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 import os
+import uuid
+import time
+import threading
+from datetime import datetime
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for frontend communication
+
+# In-memory job storage (in production, use a database)
+jobs = {}
+UPLOAD_FOLDER = 'uploads'
+OUTPUT_FOLDER = 'outputs'
+
+# Create directories if they don't exist
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 def add_hyperlink(paragraph, text, url):
     part = paragraph.part
@@ -40,7 +55,7 @@ def apply_styles(run, styles):
         color = styles['color'].replace('#', '')
         run.font.color.rgb = RGBColor.from_string(color)
 
-def handle_tag(tag, doc, parent_element):
+def handle_tag(tag, doc, parent_element=None):
     styles = {}
     if tag.get('style'):
         styles = {
@@ -64,15 +79,19 @@ def handle_tag(tag, doc, parent_element):
         for child in tag.children:
             if child.name == 'a':
                 add_hyperlink(p, child.get_text(strip=True), child.get('href'))
-            else:
-                run = p.add_run(child.get_text(strip=True))
+            elif child.name:
+                handle_tag(child, doc, p)
+            elif child.string and child.string.strip():
+                run = p.add_run(child.string.strip())
                 apply_styles(run, styles)
 
     elif tag.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
         level = int(tag.name[1])
         p = doc.add_heading(level=level)
-        run = p.add_run(tag.get_text(strip=True))
-        apply_styles(run, styles)
+        text_content = tag.get_text(strip=True)
+        if text_content:
+            run = p.add_run(text_content)
+            apply_styles(run, styles)
 
     elif tag.name == 'ul':
         for li in tag.find_all('li', recursive=False):
@@ -86,34 +105,47 @@ def handle_tag(tag, doc, parent_element):
         for child in tag.children:
             if child.name:
                 handle_tag(child, doc, parent_element)
-            else:
-                run = parent_element.add_run(child.string)
+            elif child.string and child.string.strip() and parent_element:
+                run = parent_element.add_run(child.string.strip())
                 apply_styles(run, styles)
 
     elif tag.name == 'table':
-        table = doc.add_table(rows=0, cols=len(tag.find('tr').find_all(['th', 'td'])))
-        table.style = 'Table Grid'
-        for row in tag.find_all('tr'):
-            row_cells = table.add_row().cells
-            for i, cell in enumerate(row.find_all(['th', 'td'])):
-                p = row_cells[i].paragraphs[0]
-                run = p.add_run(cell.get_text(strip=True))
-                cell_styles = {}
-                if cell.get('style'):
-                    cell_styles = {
-                        prop.strip(): val.strip()
-                        for prop, val in (
-                            style.split(':') for style in cell.get('style').split(';') if ':' in style
-                        )
-                    }
-                apply_styles(run, cell_styles)
+        if tag.find('tr'):
+            table = doc.add_table(rows=0, cols=len(tag.find('tr').find_all(['th', 'td'])))
+            table.style = 'Table Grid'
+            for row in tag.find_all('tr'):
+                row_cells = table.add_row().cells
+                for i, cell in enumerate(row.find_all(['th', 'td'])):
+                    if i < len(row_cells):
+                        p = row_cells[i].paragraphs[0]
+                        cell_text = cell.get_text(strip=True)
+                        if cell_text:
+                            run = p.add_run(cell_text)
+                            cell_styles = {}
+                            if cell.get('style'):
+                                cell_styles = {
+                                    prop.strip(): val.strip()
+                                    for prop, val in (
+                                        style.split(':') for style in cell.get('style').split(';') if ':' in style
+                                    )
+                                }
+                            apply_styles(run, cell_styles)
 
-
-    elif tag.name == 'a':
+    elif tag.name == 'a' and parent_element:
         add_hyperlink(parent_element, tag.get_text(strip=True), tag.get('href'))
+    elif tag.name == 'br':
+        if parent_element:
+            parent_element.add_run().add_break()
     else:
-        if tag.string:
-            run = parent_element.add_run(tag.string)
+        # Handle text content or unknown tags
+        text_content = tag.get_text(strip=True) if hasattr(tag, 'get_text') else str(tag).strip()
+        if text_content and parent_element:
+            run = parent_element.add_run(text_content)
+            apply_styles(run, styles)
+        elif text_content and not parent_element:
+            # If no parent element (top-level), create a paragraph
+            p = doc.add_paragraph()
+            run = p.add_run(text_content)
             apply_styles(run, styles)
 
 
@@ -125,25 +157,110 @@ def convert_html_to_docx(html_content, docx_filename):
     if body:
         for element in body.children:
             if element.name:
-                handle_tag(element, doc, doc)
+                handle_tag(element, doc, None)  # Pass None as parent_element for top-level elements
+    else:
+        # If no body tag, process all elements
+        for element in soup.children:
+            if element.name:
+                handle_tag(element, doc, None)
 
     doc.save(docx_filename)
 
-@app.route('/api/convert', methods=['POST'])
-def convert():
-    if 'htmlFile' not in request.files:
-        return 'No file part', 400
+@app.route('/api/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
 
-    file = request.files['htmlFile']
+    file = request.files['file']
 
     if file.filename == '':
-        return 'No selected file', 400
+        return jsonify({'error': 'No selected file'}), 400
 
     if file:
-        html_content = file.read().decode('utf-8')
-        output_filename = 'converted.docx'
-        convert_html_to_docx(html_content, output_filename)
-        return send_file(output_filename, as_attachment=True)
+        # Generate unique job ID
+        job_id = str(uuid.uuid4())
+        
+        # Save uploaded file
+        filename = f"{job_id}_{file.filename}"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(filepath)
+        
+        # Create job entry
+        jobs[job_id] = {
+            'jobId': job_id,
+            'status': 'pending',
+            'progress': 0,
+            'filename': filename,
+            'original_filename': file.filename,
+            'created_at': datetime.now(),
+            'downloadUrl': None,
+            'error': None
+        }
+        
+        # Start conversion in background
+        threading.Thread(target=process_conversion, args=(job_id,)).start()
+        
+        return jsonify({'jobId': job_id})
+
+@app.route('/api/status/<job_id>', methods=['GET'])
+def get_job_status(job_id):
+    if job_id not in jobs:
+        return jsonify({'error': 'Job not found'}), 404
+    
+    job = jobs[job_id]
+    return jsonify({
+        'jobId': job_id,
+        'status': job['status'],
+        'progress': job['progress'],
+        'downloadUrl': job['downloadUrl'],
+        'error': job['error']
+    })
+
+@app.route('/api/download/<filename>', methods=['GET'])
+def download_file(filename):
+    filepath = os.path.join(OUTPUT_FOLDER, filename)
+    if os.path.exists(filepath):
+        return send_file(filepath, as_attachment=True)
+    else:
+        return jsonify({'error': 'File not found'}), 404
+
+def process_conversion(job_id):
+    """Background task to process HTML to DOCX conversion"""
+    try:
+        job = jobs[job_id]
+        
+        # Update status to converting
+        jobs[job_id]['status'] = 'converting'
+        jobs[job_id]['progress'] = 20
+        
+        # Read HTML file
+        input_filepath = os.path.join(UPLOAD_FOLDER, job['filename'])
+        with open(input_filepath, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        jobs[job_id]['progress'] = 50
+        
+        # Convert HTML to DOCX
+        output_filename = f"{job_id}_converted.docx"
+        output_filepath = os.path.join(OUTPUT_FOLDER, output_filename)
+        
+        convert_html_to_docx(html_content, output_filepath)
+        
+        jobs[job_id]['progress'] = 90
+        
+        # Update job status
+        jobs[job_id]['status'] = 'completed'
+        jobs[job_id]['progress'] = 100
+        jobs[job_id]['downloadUrl'] = f'/api/download/{output_filename}'
+        
+        # Clean up input file
+        if os.path.exists(input_filepath):
+            os.remove(input_filepath)
+            
+    except Exception as e:
+        jobs[job_id]['status'] = 'error'
+        jobs[job_id]['error'] = str(e)
+        print(f"Conversion error for job {job_id}: {e}")
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5000)

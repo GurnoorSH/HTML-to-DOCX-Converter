@@ -1,14 +1,16 @@
 import { useState, useCallback } from 'react';
 import { FileUpload, UploadedFile } from '@/components/FileUpload';
 import { ConversionService } from '@/components/ConversionService';
+import { DemoConversionService } from '@/components/DemoConversionService';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { AlertCircle, CheckCircle2, Download, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Download, RefreshCw, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isConverting, setIsConverting] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(false); // Use real backend by default
   const { toast } = useToast();
 
   const handleFilesSelected = useCallback((files: File[]) => {
@@ -47,17 +49,39 @@ const Index = () => {
     setIsConverting(true);
 
     try {
+      // Process files sequentially for better user experience
       for (const uploadedFile of pendingFiles) {
         try {
-          updateFileStatus(uploadedFile.id, { status: 'converting', progress: 50 });
+          // Update status to uploading
+          updateFileStatus(uploadedFile.id, { status: 'uploading', progress: 0 });
 
-          const { downloadUrl } = await ConversionService.convertFile(uploadedFile.file);
+          // Simulate upload progress
+          for (let i = 0; i <= 50; i += 10) {
+            updateFileStatus(uploadedFile.id, { progress: i });
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
 
-          updateFileStatus(uploadedFile.id, {
-            status: 'completed',
-            progress: 100,
-            downloadUrl,
-          });
+          // Choose service based on mode
+          const service = isDemoMode ? DemoConversionService : ConversionService;
+          
+          // Upload file
+          const { jobId } = await service.uploadFile(uploadedFile.file);
+          
+          // Update status to converting
+          updateFileStatus(uploadedFile.id, { status: 'converting', progress: 60 });
+
+          // Poll for status updates
+          await service.pollJobStatus(
+            jobId,
+            (job) => {
+              updateFileStatus(uploadedFile.id, {
+                status: job.status,
+                progress: job.progress,
+                downloadUrl: job.downloadUrl,
+                error: job.error,
+              });
+            }
+          );
 
         } catch (error) {
           updateFileStatus(uploadedFile.id, {
@@ -84,7 +108,7 @@ const Index = () => {
     } finally {
       setIsConverting(false);
     }
-  }, [uploadedFiles, updateFileStatus, toast]);
+  }, [uploadedFiles, updateFileStatus, toast, isDemoMode]);
 
   const handleClearAll = useCallback(() => {
     setUploadedFiles([]);
@@ -96,6 +120,32 @@ const Index = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
+      {/* Demo Mode Alert */}
+      {isDemoMode && (
+        <Card className="p-4 bg-warning/5 border-warning/20">
+          <div className="flex items-start space-x-3">
+            <Info className="h-5 w-5 text-warning mt-0.5 flex-shrink-0" />
+            <div className="flex-1 space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium text-foreground">Demo Mode Active</h4>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsDemoMode(false)}
+                  className="text-xs"
+                >
+                  Use Real API
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Currently running in demo mode with simulated conversions. 
+                To use the actual Flask backend, click "Use Real API" and ensure your backend is running on localhost:5000.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Hero Section */}
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold text-foreground">
